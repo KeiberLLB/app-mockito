@@ -325,8 +325,63 @@ class ExamenServiceImplTest {
     InOrder inOrder = inOrder(repository, preguntaRepository);
     inOrder.verify(repository).findAll();
     inOrder.verify(preguntaRepository).findPreguntasPorExamenId(5L);
-    
+
     inOrder.verify(repository).findAll();
     inOrder.verify(preguntaRepository).findPreguntasPorExamenId(6L);
   }
+
+  @Test
+  void testNumeroInvocaciones() {
+    when(repository.findAll()).thenReturn(Datos.EXAMENES);
+    service.findExamenPorNombreConPreguntas("Matemáticas");
+
+    verify(preguntaRepository).findPreguntasPorExamenId(5L);
+    //como segundo argumento en el verify
+    //times es el número de veces que se invoca el mock
+    verify(preguntaRepository, times(1)).findPreguntasPorExamenId(5L);
+    //atLeast(1) es el mínimo número de veces que se invoca el mock
+    verify(preguntaRepository, atLeast(1)).findPreguntasPorExamenId(5L);
+    //atMost(1) es el máximo número de veces que se invoca el mock
+    verify(preguntaRepository, atMost(1)).findPreguntasPorExamenId(5L);
+    //atMostOnce() es el número máximo de veces que se invoca el mock, incluyendo 0
+    verify(preguntaRepository, atMostOnce()).findPreguntasPorExamenId(5L);
+    //atLeastOnce() es el número mínimo de veces que se invoca el mock, incluyendo 0
+    verify(preguntaRepository, atLeastOnce()).findPreguntasPorExamenId(5L);
+  }
+
+  @Test
+  void testNumeroInvocaciones2() {
+    when(repository.findAll()).thenReturn(Datos.EXAMENES);
+    service.findExamenPorNombreConPreguntas("Matemáticas");
+
+//    verify(preguntaRepository).findPreguntasPorExamenId(5L);
+    //como segundo argumento en el verify
+    //times es el número de veces que se invoca el mock
+    verify(preguntaRepository, times(2)).findPreguntasPorExamenId(5L);
+    //atLeast(1) es el mínimo número de veces que se invoca el mock
+    verify(preguntaRepository, atLeast(1)).findPreguntasPorExamenId(5L);
+    //atMost(1) es el máximo número de veces que se invoca el mock
+    verify(preguntaRepository, atMost(2)).findPreguntasPorExamenId(5L);
+    //atMostOnce() es el número máximo de veces que se invoca el mock, incluyendo 0
+//    verify(preguntaRepository, atMostOnce()).findPreguntasPorExamenId(5L);
+    //atLeastOnce() es el número mínimo de veces que se invoca el mock, incluyendo 0
+    verify(preguntaRepository, atLeastOnce()).findPreguntasPorExamenId(5L);
+  }
+
+  @Test
+  void testNumeroInvocaciones3() {
+    when(repository.findAll()).thenReturn(Collections.emptyList());
+    service.findExamenPorNombreConPreguntas("Matemáticas");
+
+    verify(preguntaRepository, never()).findPreguntasPorExamenId(5L);
+    verifyNoInteractions(preguntaRepository);
+
+    verify(repository).findAll();
+    verify(repository, times(1)).findAll();
+    verify(repository, atLeast(1)).findAll();
+    verify(repository, atLeastOnce()).findAll();
+    verify(repository, atMost(1)).findAll();
+    verify(repository, atMostOnce()).findAll();
+  }
+
 }
