@@ -1,4 +1,4 @@
-package org.keiber.appmockito.ejemplos.services;
+package org.keiber.appmockito.ejemplos;
 
 import org.keiber.appmockito.ejemplos.models.Examen;
 

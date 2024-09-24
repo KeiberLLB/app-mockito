@@ -3,9 +3,13 @@ package org.keiber.appmockito.ejemplos.services;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.keiber.appmockito.ejemplos.Datos;
 import org.keiber.appmockito.ejemplos.models.Examen;
+
 import org.keiber.appmockito.ejemplos.repositories.ExamenRepository;
+import org.keiber.appmockito.ejemplos.repositories.ExamenRepositoryImpl;
 import org.keiber.appmockito.ejemplos.repositories.PreguntaRepository;
+import org.keiber.appmockito.ejemplos.repositories.PreguntaRepositoryImpl;
 import org.mockito.*;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -21,10 +25,10 @@ class ExamenServiceImplTest {
 
   //Given
   @Mock
-  ExamenRepository repository;
+  ExamenRepositoryImpl repository;
 
   @Mock
-  PreguntaRepository preguntaRepository;
+  PreguntaRepositoryImpl preguntaRepository;
 
   @InjectMocks
   ExamenServiceImpl service;
@@ -38,8 +42,8 @@ class ExamenServiceImplTest {
     // es lo mismo de arriba, pero de forma implícita
 
     //MockitoAnnotations.openMocks(this);
-    //repository = mock(ExamenRepository.class);
-    //preguntaRepository = mock(PreguntaRepository.class);
+    //repository = mock(ExamenRepositoryImpl.class);
+    //preguntaRepository = mock(PreguntaRepositoryImpl.class);
     //service = new ExamenServiceImpl(repository, preguntaRepository);
   }
 
@@ -198,5 +202,131 @@ class ExamenServiceImplTest {
 //    ArgumentCaptor<Long> captor = ArgumentCaptor.forClass(Long.class);
     verify(preguntaRepository).findPreguntasPorExamenId(captor.capture());
     assertEquals(5L, captor.getValue());
+  }
+
+  @Test
+  void testDoThorow() {
+    //when lo usamos para simular comportamientos que no son posibles con Mockito
+    //y también cuando el método retorna un objeto de cualquier tipo; ejemplo ->
+    // no se puede usar con un Void.
+    //when(preguntaRepository.findPreguntasPorExamenId(45L)).thenThrow(IllegalArgumentException.class);
+
+    //doThrow lo usamos para los métodos Void
+    Examen examen = Datos.EXAMEN;
+    examen.setPreguntas(Datos.PREGUNTAS);
+    doThrow(IllegalArgumentException.class).when(preguntaRepository).guardarVarias(anyList());
+
+    assertThrows(IllegalArgumentException.class, () -> service.guardar(examen));
+  }
+
+  @Test
+  void testDoAnswer() {
+    when(repository.findAll()).thenReturn(Datos.EXAMENES);
+//    when(preguntaRepository.findPreguntasPorExamenId(anyLong())).thenReturn(Datos.PREGUNTAS);
+    doAnswer(invocationOnMock -> {
+      Long id = invocationOnMock.getArgument(0);
+      return id == 5L ? Datos.PREGUNTAS : Collections.emptyList();
+    }).when(preguntaRepository).findPreguntasPorExamenId(anyLong());
+
+    Examen examen = service.findExamenPorNombreConPreguntas("Matemáticas");
+    assertEquals(5, examen.getPreguntas().size());
+    assertTrue(examen.getPreguntas().contains("aritmética"));
+    assertEquals(5L, examen.getId());
+    assertEquals("Matemáticas", examen.getNombre());
+
+    //verify = verifica que el método se ha llamado con el argumento esperado
+    verify(preguntaRepository).findPreguntasPorExamenId(anyLong());
+  }
+
+  @Test
+  void testDoAnswerGuardarExamen() {
+    //Given = Son las precondiciones en nuestro entorno de prueba
+    Examen newExamen = Datos.EXAMEN;
+    newExamen.setPreguntas(Datos.PREGUNTAS);
+
+    doAnswer(new Answer<Examen>() {
+      Long secuencia = 8L;
+
+      @Override
+      public Examen answer(InvocationOnMock invocationOnMock) throws Throwable {
+        Examen examen = invocationOnMock.getArgument(0);
+        examen.setId(secuencia++);
+        return examen;
+      }
+    }).when(repository).guardar(any(Examen.class));
+
+    //When = Llamamos a nuestra acción en nuestro entorno de prueba
+    Examen examen = service.guardar(newExamen);
+
+    //Then = Verificamos que nuestra acción produzca el resultado esperado
+    assertNotNull(examen.getId());
+    assertEquals(8L, examen.getId());
+    assertEquals("Física", examen.getNombre());
+
+    verify(repository).guardar(any(Examen.class));
+    verify(preguntaRepository).guardarVarias(anyList());
+  }
+
+  @Test
+  void testDoCallRealMethod() {
+    when(repository.findAll()).thenReturn(Datos.EXAMENES);
+//    when(preguntaRepository.findPreguntasPorExamenId(anyLong())).thenReturn(Datos.PREGUNTAS);
+
+    doCallRealMethod().when(preguntaRepository).findPreguntasPorExamenId(anyLong());
+    Examen examen = service.findExamenPorNombreConPreguntas("Matemáticas");
+    assertEquals(5L, examen.getId());
+    assertEquals("Matemáticas", examen.getNombre());
+
+  }
+
+  @Test
+  void testSpy() {
+    ExamenRepository examenRepository = spy(ExamenRepositoryImpl.class);
+    PreguntaRepository preguntaRepository = spy(PreguntaRepositoryImpl.class);
+    ExamenService examenService = new ExamenServiceImpl(examenRepository, preguntaRepository);
+
+    List<String> preguntas = Arrays.asList("aritmética", "geometría", "cálculo");
+//    when(preguntaRepository.findPreguntasPorExamenId(anyLong())).thenReturn(preguntas);
+    doReturn(preguntas).when(preguntaRepository).findPreguntasPorExamenId(anyLong());
+
+    Examen examen = examenService.findExamenPorNombreConPreguntas("Matemáticas");
+    assertEquals(5L, examen.getId());
+    assertEquals("Matemáticas", examen.getNombre());
+    assertEquals(3, examen.getPreguntas().size());
+    assertTrue(examen.getPreguntas().contains("aritmética"));
+
+    verify(examenRepository).findAll();
+    verify(preguntaRepository).findPreguntasPorExamenId(anyLong());
+  }
+
+  //verificar el orden en el que se ejecutan los métodos mock
+  @Test
+  void testOrdenDeInvocaciones() {
+    when(repository.findAll()).thenReturn(Datos.EXAMENES);
+
+    service.findExamenPorNombreConPreguntas("Matemáticas");
+    service.findExamenPorNombreConPreguntas("Lenguaje");
+
+    // Ctrl + Alt + v = se crea una variable
+    InOrder inOrder = inOrder(preguntaRepository);
+    inOrder.verify(preguntaRepository).findPreguntasPorExamenId(5L);
+    inOrder.verify(preguntaRepository).findPreguntasPorExamenId(6L);
+  }
+
+  @Test
+  void testOrdenDeInvocaciones2() {
+    when(repository.findAll()).thenReturn(Datos.EXAMENES);
+
+    service.findExamenPorNombreConPreguntas("Matemáticas");
+    service.findExamenPorNombreConPreguntas("Lenguaje");
+
+    // Ctrl + Alt + v = se crea una variable
+    // Ctrl + d = clona una linea de código
+    InOrder inOrder = inOrder(repository, preguntaRepository);
+    inOrder.verify(repository).findAll();
+    inOrder.verify(preguntaRepository).findPreguntasPorExamenId(5L);
+    
+    inOrder.verify(repository).findAll();
+    inOrder.verify(preguntaRepository).findPreguntasPorExamenId(6L);
   }
 }
